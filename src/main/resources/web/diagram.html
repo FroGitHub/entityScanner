@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+
+    <script src="mermaid.min.js"></script>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        function renderDiagram(code) {
+
+            document.getElementById("graph").innerHTML =
+                '<pre class="mermaid">' + code + '</pre>';
+
+            mermaid.run();
+        }
+
+    </script>
+</head>
+
+<body style="margin:0">
+
+<div id="graph"></div>
+
+</body>
+</html>
