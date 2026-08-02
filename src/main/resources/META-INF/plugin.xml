@@ -4,15 +4,27 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
 
+    <!-- у 2025.3+/2026.x JCEF живе в окремому бандл-плагіні (plugins/jcef-plugin),
+         без цього модуля com.intellij.ui.jcef.* не видно класлоадеру плагіна -->
+    <dependencies>
+        <module name="intellij.platform.ui.jcef"/>
+    </dependencies>
+
     <name>EntityScaner</name>
 
-    <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+    <description><![CDATA[
+        Scans JPA entities in the project and renders them as a Mermaid diagram in a tool window.
+    ]]></description>
+
+    <vendor url="https://github.com/FroGitHub">frog</vendor>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow
                 id="Entity Diagram"
                 anchor="right"
-                factoryClass="frog.entityScanner.window.EntityDiagramToolWindowFactory1"/>
+                factoryClass="frog.entityScanner.window.EntityDiagramToolWindowFactory1"
+                icon="AllIcons.Javaee.PersistenceEntity"
+        />
 
     </extensions>
     <actions>

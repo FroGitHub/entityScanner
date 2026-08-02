@@ -1,20 +1,33 @@
 package frog.entityScanner.scanner
 
+import com.intellij.ide.highlighter.JavaFileType
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiAnnotation
+import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiField
 import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiManager
-import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import frog.entityScanner.model.EntityGraph
 import frog.entityScanner.model.EntityNode
 import frog.entityScanner.model.EntityRelation
 import frog.entityScanner.model.RelationType
 
+private val LOG = logger<EntityScanner>()
+
 class EntityScanner(
     private val project: Project
 ) {
+
+    /** діагностика останнього сканування — щоб порожній результат не був німим */
+    var scannedFiles: Int = 0
+        private set
+
+    var scannedClasses: Int = 0
+        private set
 
     fun scan(): EntityGraph {
 
@@ -27,11 +40,13 @@ class EntityScanner(
 
         val result = mutableListOf<EntityNode>()
 
+        scannedFiles = 0
+        scannedClasses = 0
+
         val scope = GlobalSearchScope.projectScope(project)
 
-        FilenameIndex.getAllFilesByExt(
-            project,
-            "java",
+        FileTypeIndex.getFiles(
+            JavaFileType.INSTANCE,
             scope
         ).forEach { virtualFile ->
 
@@ -42,11 +57,14 @@ class EntityScanner(
             val javaFile = psiFile as? PsiJavaFile
                 ?: return@forEach
 
+            scannedFiles++
 
             javaFile.classes.forEach { psiClass ->
 
+                scannedClasses++
+
                 val isEntity = psiClass.annotations.any {
-                    it.qualifiedName == "jakarta.persistence.Entity"
+                    it.isPersistenceAnnotation("Entity")
                 }
 
                 if (isEntity) {
@@ -79,6 +97,15 @@ class EntityScanner(
             }
         }
 
+        LOG.info(
+            "Скановано .java файлів: $scannedFiles, класів: $scannedClasses, " +
+                "знайдено сутностей: ${result.size}"
+        )
+
+        if (result.isEmpty() && scannedClasses > 0) {
+            logAnnotationSample(scope)
+        }
+
         return result
     }
 
@@ -103,21 +130,52 @@ class EntityScanner(
 
     private fun getRelationType(field: PsiField): RelationType? {
 
+        val annotations = field.annotations
+
         return when {
 
-            field.hasAnnotation("jakarta.persistence.ManyToOne") ->
+            annotations.any { it.isPersistenceAnnotation("ManyToOne") } ->
                 RelationType.MANY_TO_ONE
 
-            field.hasAnnotation("jakarta.persistence.OneToMany") ->
+            annotations.any { it.isPersistenceAnnotation("OneToMany") } ->
                 RelationType.ONE_TO_MANY
 
-            field.hasAnnotation("jakarta.persistence.OneToOne") ->
+            annotations.any { it.isPersistenceAnnotation("OneToOne") } ->
                 RelationType.ONE_TO_ONE
 
-            field.hasAnnotation("jakarta.persistence.ManyToMany") ->
+            annotations.any { it.isPersistenceAnnotation("ManyToMany") } ->
                 RelationType.MANY_TO_MANY
 
             else -> null
         }
+    }
+
+    /**
+     * Приймає і jakarta, і javax, і голе коротке ім'я — останнє трапляється,
+     * коли анотація не зарезолвилась (не підтягнута бібліотека / не завершений імпорт Maven).
+     */
+    private fun PsiAnnotation.isPersistenceAnnotation(simpleName: String): Boolean {
+
+        val qualifiedName = this.qualifiedName ?: return false
+
+        return qualifiedName == "jakarta.persistence.$simpleName" ||
+            qualifiedName == "javax.persistence.$simpleName" ||
+            qualifiedName == simpleName
+    }
+
+    /** у лог — які взагалі анотації класів бачить сканер, коли сутностей 0 */
+    private fun logAnnotationSample(scope: GlobalSearchScope) {
+
+        val names = FileTypeIndex.getFiles(JavaFileType.INSTANCE, scope)
+            .asSequence()
+            .mapNotNull { PsiManager.getInstance(project).findFile(it) as? PsiJavaFile }
+            .flatMap { it.classes.asSequence() }
+            .flatMap { psiClass: PsiClass -> psiClass.annotations.asSequence() }
+            .mapNotNull { it.qualifiedName }
+            .distinct()
+            .take(30)
+            .toList()
+
+        LOG.warn("Сутностей не знайдено. Анотації класів у проєкті: $names")
     }
 }

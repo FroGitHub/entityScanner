@@ -1,9 +1,7 @@
-import org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask
-
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.1.0"
-    id("org.jetbrains.intellij.platform") version "2.5.0"
+    id("org.jetbrains.kotlin.jvm") version "2.4.0"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 group = "frog"
@@ -18,48 +16,48 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        create("IC", "2025.2")
+        intellijIdea("2026.2")
+
         bundledPlugin("com.intellij.java")
-        jetbrainsRuntime()
-        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+        bundledModule("intellij.platform.ui.jcef")
+
+        testFramework(
+            org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform
+        )
+    }
+}
+
+tasks {
+    runIde {
+        // out-of-process JCEF — типовий режим у 262; примусове вимкнення може
+        // призвести до JBCefApp.isSupported() == false
+         jvmArgs("-Dide.browser.jcef.out-of-process.enabled=false")
     }
 }
 
 intellijPlatform {
     pluginConfiguration {
-        id = "frog.entityScanner"
-        name = "EntityScanner"
-        ideaVersion { sinceBuild = "251" }
-        changeNotes = "Initial version"
+        ideaVersion {
+            sinceBuild = "262"
+        }
+
+        changeNotes = """
+            Initial version
+        """.trimIndent()
     }
 }
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "21"
-        targetCompatibility = "21"
-    }
-    withType<RunIdeTask> {
-        jvmArgs("-Dsun.java2d.uiScale=1.0")
+        sourceCompatibility = "25"
+        targetCompatibility = "25"
     }
 }
 
-//tasks {
-//    withType<JavaCompile> {
-//        sourceCompatibility = "21"
-//        targetCompatibility = "21"
-//    }
-//
-//    withType<RunIdeTask> {
-//        // Вимикаємо агент корутин, який ламає дебаг
-//        systemProperty("idea.kotlinx.coroutines.debug", "false")
-//
-//        jvmArgs("-Dsun.java2d.uiScale=1.0")
-//    }
-//}
-
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        jvmTarget.set(
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+        )
     }
 }
